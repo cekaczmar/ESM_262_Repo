@@ -1,0 +1,12 @@
+---
+title: "Assignment_1"
+author: "Camille Kaczmar"
+date: "2024-02-26"
+output: html_document
+---
+
+##add one paragraph that describes why you are taking this course
+- Taking this course so that I can get a better understanding of how R works and the different applications that I can apply to it. I think that data science and modelling can create compelling stories and influence policy and decision making when there's clear graphs, and descriptive data and examples. Being able to communicate data science effectively is pivotal to making any change. 
+
+##add one paragraph that describes your data science background
+- I just took ESM 206. And that was a lot to take in! 
