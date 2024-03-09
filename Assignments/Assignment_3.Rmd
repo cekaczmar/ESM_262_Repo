@@ -1,0 +1,225 @@
+---
+title: "Assignment_3"
+author: "Camille Kaczmar"
+date: "2024-03-09"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(purrr)
+```
+
+# Introduction
+This analysis explores the power required for different car types on a highway. We extend the analysis by adding a new super light car and computing mean and maximum power across sampled speeds using two methods: FOR loops and the pmap function.
+
+## Autopower Function
+First, we define the autopower function used to calculate the power required for a car moving at a given speed.
+
+```{r setup, include=FALSE}
+autopower <- function(V, A, m) {
+  # Constants
+  rho <- 1.225 # kg/m^3, density of air
+  Cd <- 0.3 # Drag coefficient, assuming a common value for simplicity
+  
+  # Convert speed from km/hr to m/s
+  V_m_s <- V * 1000 / 3600 
+  
+  # Power calculation
+  P <- 0.5 * rho * Cd * A * V_m_s^3 + m * 9.81 * V_m_s # Simplified power equation
+  return(P)
+}
+```
+
+## Car Specifications
+Now, we define the specifications for each car type, including the new super light car.
+
+```{r}
+possible_cars <- data.frame(
+  name = c("A", "B", "C", "Super Light"),
+  mass = c(20000, 65000, 38000, 5000), # in kg
+  area = c(22, 30, 22, 10) # in m^2
+)
+```
+
+
+##Generating Sampled Speeds
+We generate speeds centered around the mean highway speed of 80 km/hr with a standard deviation of 10km/hr.
+
+
+```{r}
+set.seed(123) # For reproducibility
+nsample <- 200
+mean_speed <- 80 # km/hr
+sd_speed <- 10 # km/hr
+
+speed_samples <- rnorm(n = nsample, mean = mean_speed, sd = sd_speed)
+```
+
+## Method 1: Using FOR Loop
+This code block does the following:
+
+- Initializes variables and generates 100 sample speeds based on the specified mean and standard deviation, converted to m/s.
+- Loops through each car type defined in possible_cars.
+- For each car, it loops through each of the 100 sampled speeds, calculates power using the autopower function, and stores these power values.
+- Calculates mean and maximum power from the generated power values for each car.
+- Stores these calculations in the results data frame for later analysis.
+
+```{r}
+# Load the autopower function
+source("C:/Users/camil/OneDrive/Documents/UCSB/ESM 262/ESM_262_Repo/R/autopower.R")
+
+# Generate speeds in m/s from a normally distributed set of speeds in km/hr
+set.seed(123) # Ensure reproducibility
+nsample = 100
+mean_speed_kmh = 80
+sd_speed_kmh = 10
+mean_speed_ms = mean_speed_kmh / 3.6
+sd_speed_ms = sd_speed_kmh / 3.6
+
+# Initialize data frames to store results
+results <- data.frame(car = character(), mean_power = numeric(), max_power = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each car type
+for (i in 1:nrow(possible_cars)) {
+  car <- possible_cars$name[i]
+  speeds <- rnorm(nsample, mean = mean_speed_ms, sd = sd_speed_ms)
+  powers <- numeric(nsample)
+  
+  for (j in 1:nsample) {
+    powers[j] <- autopower(V = speeds[j], A = possible_cars$area[i], m = possible_cars$mass[i])
+  }
+  
+  mean_power <- mean(powers)
+  max_power <- max(powers)
+  
+  results <- rbind(results, data.frame(car = car, mean_power = mean_power, max_power = max_power))
+}
+
+results
+```
+
+
+
+## Method 2: Using pmap
+For Method 2, we'll use the pmap function from the purrr package to efficiently compute mean and maximum power for each car type across sampled speeds. This method is particularly useful when you want to apply a function to each row of a data frame or list, using elements from each row as arguments to the function.
+
+Assuming you have already defined your autopower function correctly and it is sourced into your R session, let's proceed with using pmap for this task.
+
+### Preparing Speed Samples
+First, generate a vector of speeds based on a normal distribution converted from km/hr to m/s, just like in Method 1:
+
+```{r}
+# Assuming mean speed of 80 km/hr and standard deviation of 10 km/hr
+mean_speed_kmh <- 80
+sd_speed_kmh <- 10
+nsample <- 100
+
+# Convert mean and sd to m/s
+mean_speed_ms <- mean_speed_kmh / 3.6
+sd_speed_ms <- sd_speed_kmh / 3.6
+
+# Generate speeds
+set.seed(123) # for reproducibility
+speeds_ms <- rnorm(nsample, mean = mean_speed_ms, sd = sd_speed_ms)
+
+```
+
+With pmap, you can create a list where each element corresponds to the arguments of the autopower function (except for speeds, which you'll handle separately) and then apply autopower across all combinations of arguments.
+
+Here's how to use pmap for computing the mean and maximum power for each car type, assuming possible_cars dataframe is already defined:
+
+```{r}
+# Ensure the autopower function can accept vectors and returns vector of powers
+autopower <- function(V, A, m) {
+  g <- 9.8 # m/s^2
+  rho <- 1.225 # kg/m^3
+  cdrag <- 0.3 # Coefficient of drag
+  Pb <- (0.5 * rho * A * cdrag * V^3) + (m * g * V)
+  return(Pb)
+}
+
+# Function to compute mean and max power for a given car and speeds
+compute_powers <- function(A, m, speeds) {
+  powers <- pmap_dbl(list(V = speeds, A = rep(A, length(speeds)), m = rep(m, length(speeds))), autopower)
+  mean_power <- mean(powers)
+  max_power <- max(powers)
+  return(list(mean_power = mean_power, max_power = max_power))
+}
+
+# Apply compute_powers for each car
+results_pmap <- map2_dfr(possible_cars$area, possible_cars$mass, ~compute_powers(.x, .y, speeds_ms))
+
+# Add car names to the results
+results_pmap$car <- possible_cars$name
+
+results_pmap
+```
+
+
+## Boxplots of Power Consumption
+#### Preparing the Data
+- Ensure your data from the FOR loop and pmap are in a long format suitable for ggplot2. If your data isn't already in this format, you'll need to reshape it. Here's a general approach using pivot_longer() from the tidyverse, assuming your data frames are named results_for and results_pmap:
+
+```{r}
+# Assuming results_for and results_pmap are data frames where each column represents a car type
+# and each row represents power calculated for a specific speed.
+
+library(tidyverse)
+
+# Convert results from FOR loop to long format
+results_for_long <- results_for %>%
+  pivot_longer(cols = everything(), names_to = "Car", values_to = "Power") %>%
+  mutate(Method = "FOR")
+
+# Convert results from pmap to long format
+results_pmap_long <- results_pmap %>%
+  pivot_longer(cols = everything(), names_to = "Car", values_to = "Power") %>%
+  mutate(Method = "pmap")
+
+# Combine both datasets
+all_results <- bind_rows(results_for_long, results_pmap_long)
+
+
+############## HAVING TROUBLE PIVOTING ###############
+#### I think it's because my data is represented only as mean and max data sets, rather than a sampled data set. HELP! ######### 
+
+
+
+
+```
+
+
+## Creating Boxplots
+Now, let's create the boxplots using ggplot2. We'll make one plot but differentiate the methods by color or facet:
+
+## Option 1: Color to differentiate methods
+
+
+```{r}
+ggplot(all_results, aes(x = Car, y = Power, fill = Method)) +
+  geom_boxplot() +
+  labs(title = "Power Consumption Across Car Types", y = "Power (W)", x = "Car Type") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1")
+```
+
+## Option 2: Facet by method
+
+```{r}
+ggplot(all_results, aes(x = Car, y = Power)) +
+  geom_boxplot() +
+  facet_wrap(~Method) +
+  labs(title = "Power Consumption Across Car Types", y = "Power (W)", x = "Car Type") +
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
+
+
