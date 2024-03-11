@@ -43,7 +43,7 @@ possible_cars <- data.frame(
 ```
 
 
-##Generating Sampled Speeds
+## Generating Sampled Speeds
 We generate speeds centered around the mean highway speed of 80 km/hr with a standard deviation of 10km/hr.
 
 
@@ -66,8 +66,8 @@ This code block does the following:
 - Stores these calculations in the results data frame for later analysis.
 
 ```{r}
-# Load the autopower function
-source("C:/Users/camil/OneDrive/Documents/UCSB/ESM 262/ESM_262_Repo/R/autopower.R")
+# If we needed the autopower function loaded: 
+## source("C:/Users/camil/OneDrive/Documents/UCSB/ESM262/ESM_262_Repo/R/autopower.)
 
 # Generate speeds in m/s from a normally distributed set of speeds in km/hr
 set.seed(123) # Ensure reproducibility
@@ -80,25 +80,30 @@ sd_speed_ms = sd_speed_kmh / 3.6
 # Initialize data frames to store results
 results <- data.frame(car = character(), mean_power = numeric(), max_power = numeric(), stringsAsFactors = FALSE)
 
+powers <- as.data.frame(matrix(ncol=4, nrow=nsample))
+colnames(powers) = possible_cars$name
+
 # Loop through each car type
 for (i in 1:nrow(possible_cars)) {
   car <- possible_cars$name[i]
   speeds <- rnorm(nsample, mean = mean_speed_ms, sd = sd_speed_ms)
-  powers <- numeric(nsample)
+
   
-  for (j in 1:nsample) {
-    powers[j] <- autopower(V = speeds[j], A = possible_cars$area[i], m = possible_cars$mass[i])
-  }
+    powers[,i] <- autopower(V = speeds, A = possible_cars$area[i], m = possible_cars$mass[i])
+    
   
-  mean_power <- mean(powers)
-  max_power <- max(powers)
+  mean_power <- mean(powers[,i])
+  max_power <- max(powers[,i])
   
   results <- rbind(results, data.frame(car = car, mean_power = mean_power, max_power = max_power))
 }
 
+### Pivot powers data frame longer 
+powers_pivot <- pivot_longer(powers,cols = A:'Super Light',names_to = "cars",values_to = "powers")
+
+
 results
 ```
-
 
 
 ## Method 2: Using pmap
@@ -141,85 +146,52 @@ autopower <- function(V, A, m) {
 
 # Function to compute mean and max power for a given car and speeds
 compute_powers <- function(A, m, speeds) {
-  powers <- pmap_dbl(list(V = speeds, A = rep(A, length(speeds)), m = rep(m, length(speeds))), autopower)
-  mean_power <- mean(powers)
-  max_power <- max(powers)
-  return(list(mean_power = mean_power, max_power = max_power))
+  powers <- pmap_dbl(list(V = speeds), autopower, A = A, m = m)
+  return(list(powers=powers))
 }
 
+
 # Apply compute_powers for each car
-results_pmap <- map2_dfr(possible_cars$area, possible_cars$mass, ~compute_powers(.x, .y, speeds_ms))
-
-# Add car names to the results
-results_pmap$car <- possible_cars$name
-
-results_pmap
-```
+results_pmap <- map2_dfc(possible_cars$area, possible_cars$mass, ~compute_powers(.x, .y, speeds_ms))
+colnames(results_pmap) = possible_cars$name
 
 
-## Boxplots of Power Consumption
-#### Preparing the Data
-- Ensure your data from the FOR loop and pmap are in a long format suitable for ggplot2. If your data isn't already in this format, you'll need to reshape it. Here's a general approach using pivot_longer() from the tidyverse, assuming your data frames are named results_for and results_pmap:
+##Pivot data frame longer
+powers_pivot_pmap <- pivot_longer(results_pmap,cols = A:'Super Light',names_to = "cars",values_to = "powers")
 
-```{r}
-# Assuming results_for and results_pmap are data frames where each column represents a car type
-# and each row represents power calculated for a specific speed.
+mean_power_pmap <-apply(results_pmap, 2, mean)
+max_power_pmap <- apply(results_pmap, 2, max)
 
-library(tidyverse)
-
-# Convert results from FOR loop to long format
-results_for_long <- results_for %>%
-  pivot_longer(cols = everything(), names_to = "Car", values_to = "Power") %>%
-  mutate(Method = "FOR")
-
-# Convert results from pmap to long format
-results_pmap_long <- results_pmap %>%
-  pivot_longer(cols = everything(), names_to = "Car", values_to = "Power") %>%
-  mutate(Method = "pmap")
-
-# Combine both datasets
-all_results <- bind_rows(results_for_long, results_pmap_long)
-
-
-############## HAVING TROUBLE PIVOTING ###############
-#### I think it's because my data is represented only as mean and max data sets, rather than a sampled data set. HELP! ######### 
-
-
-
+mean_power_pmap
+max_power_pmap
 
 ```
 
-
-## Creating Boxplots
-Now, let's create the boxplots using ggplot2. We'll make one plot but differentiate the methods by color or facet:
-
-## Option 1: Color to differentiate methods
-
+## Plot the data
 
 ```{r}
-ggplot(all_results, aes(x = Car, y = Power, fill = Method)) +
+library(ggplot2)
+
+ggplot(powers_pivot, aes(x = cars, y = powers, fill = cars)) +
   geom_boxplot() +
-  labs(title = "Power Consumption Across Car Types", y = "Power (W)", x = "Car Type") +
+  labs(title = "Power Distribution for Different Car Types",
+       x = "Car Type",
+       y = "Power (Watts)") +
   theme_minimal() +
-  scale_fill_brewer(palette = "Set1")
-```
+  scale_fill_brewer(palette = "Set2") # This line is optional, just to add some color differentiation.
 
-## Option 2: Facet by method
+```
+## Plot the pmap Data
 
 ```{r}
-ggplot(all_results, aes(x = Car, y = Power)) +
+library(ggplot2)
+
+ggplot(powers_pivot_pmap, aes(x = cars, y = powers, fill = cars)) +
   geom_boxplot() +
-  facet_wrap(~Method) +
-  labs(title = "Power Consumption Across Car Types", y = "Power (W)", x = "Car Type") +
-  theme_minimal()
+  labs(title = "Power Distribution for Different Car Types",
+       x = "Car Type",
+       y = "Power (Watts)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2") # This line is optional, just to add some color differentiation.
 ```
-
-
-
-
-
-
-
-
-
 
