@@ -1,0 +1,48 @@
+---
+title: "Fish"
+author: "Camille Kaczmar"
+date: "2024-03-13"
+output: html_document
+---
+```{r}
+# Read fish names from the file
+fish_names <- readLines("Data/fish.txt")
+
+```
+
+
+```{r}
+analyze_fish_data <- function(fish_vector) {
+  # Count the occurrence of each fish
+  fish_counts <- table(fish_vector)
+  
+  # Most common fish
+  most_common <- names(which.max(fish_counts))
+  
+  # Rarest fish
+  rarest <- names(which.min(fish_counts))
+  
+  # Total number of fish
+  total_fish <- sum(fish_counts)
+  
+  # Return a list with the results
+  list(
+    most_common = most_common,
+    rarest = rarest,
+    total_number = total_fish
+  )
+}
+
+```
+
+
+```{r}
+# Assuming fish_names contains your data from fish.txt
+fish_analysis_result <- analyze_fish_data(fish_names)
+
+# Print the result
+print(fish_analysis_result)
+
+```
+
+

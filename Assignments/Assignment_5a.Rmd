@@ -1,0 +1,38 @@
+---
+title: "Assignment_5a"
+author: "Camille Kaczmar"
+date: "2024-03-16"
+output: html_document
+---
+```{r}
+library(tidyverse)
+possible.fish = c("salmon","steelhead","shark", "tuna", "cod")
+```
+
+```{r}
+fish_summary = function(fish) {
+  max = names(which.max(summary_fish))
+  rare = names(which.min(summary_fish))
+  nfish = length(fish)
+  
+  return(list(most_common=max, rarest=rare, nfish=nfish))}
+
+```
+
+
+```{r}
+fish_summary2 = function(fish) {
+  fish_fact = as.factor(fish)
+  fish_sum = summary (fish_fact)
+  rarefish = names(which.min(fish_sum))
+  commonfish = names(which.max(fish_sum))
+  nfish = length(fish)
+  
+  return(list(rarefish=rarefish, commonfish=commonfish, nfish=nfish))
+}
+```
+
+
+
+
+
